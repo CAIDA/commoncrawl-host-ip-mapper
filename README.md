@@ -36,3 +36,18 @@ To output to a different file:
 ``` sh
 ./target/release/cc-host-mapper --threads 128 --output custom-output-file-name.csv
 ```
+
+## Output
+
+The output of the file is formatted as `HOST,DATE,IP`.
+
+``` csv
+...
+college.ac,2020-11-25,172.104.36.121
+college.ac,2020-11-28,172.104.36.121
+door.ac,2020-11-26,54.95.55.40
+door.ac,2020-11-24,54.95.55.40
+door.ac,2020-11-23,54.95.55.40
+door.ac,2020-12-01,54.168.46.54
+...
+```
