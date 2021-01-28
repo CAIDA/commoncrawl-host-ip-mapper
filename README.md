@@ -1,5 +1,8 @@
 # CommonCrawl Host-IP Mapper
 
+![](images/mapper-demo.gif)
+
+
 CommonCrawl Host Mapper crawls the select CommonCrawl index and generate host to
 IP mapping file.
 
