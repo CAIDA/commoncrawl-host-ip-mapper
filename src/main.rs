@@ -14,6 +14,10 @@ struct Opts {
     /// Number of threads to be used for crawling
     #[clap(short, long)]
     threads: Option<usize>,
+
+    /// Number of threads to be used for crawling
+    #[clap(short, long)]
+    dump_cluster_idx: bool,
 }
 
 fn main() {
@@ -60,6 +64,17 @@ fn main() {
             format!("mapping-{}.csv.gz", selected_index.id.as_str().to_lowercase())
         }
     };
+
+    if opts.dump_cluster_idx {
+        println!("dumping cluster.idx to csv file");
+        let host_pointers = read_cluster_idx(&selected_index.id.to_owned());
+        let mut writer = get_writer(&format!("cluster-idx-{}.csv.gz", selected_index.id.as_str().to_lowercase()));
+        for item in host_pointers {
+            writeln!(writer, "{}", item.to_csv()).unwrap();
+        }
+        return
+    }
+
     println!("Will start crawling {} now...", selected_index.id);
     crawl_host_ip_mapping(
         selected_index.id.to_owned(),

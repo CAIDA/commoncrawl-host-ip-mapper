@@ -83,11 +83,17 @@ pub struct IndexFiles {
 /// host in question.
 #[derive(Debug, Clone)]
 pub struct IndexHostPointer {
-    host: String,
-    timestamp: i64,
-    index_file_name: String,
-    range_start: i64,
-    range_length: i64,
+    pub host: String,
+    pub timestamp: i64,
+    pub index_file_name: String,
+    pub range_start: i64,
+    pub range_length: i64,
+}
+
+impl IndexHostPointer {
+    pub fn to_csv(&self) -> String {
+        format!("{},{},{},{},{}", self.host, self.timestamp, self.index_file_name, self.range_start, self.range_length)
+    }
 }
 
 /// A record in an index file.
@@ -187,6 +193,10 @@ pub fn get_newest_index() -> Index {
     indices[0].clone()
 }
 
+/// Parse one line in cluster.idx file and return a [IndexHostPointer]
+///
+/// Example line:
+/// 0,102,126,13:7037)/robots.txt 20201126201142\tcdx-00000.gz\t0\t205505\t1
 fn parse_idx_entry(index_id: &str, line: String) -> Option<IndexHostPointer> {
     let parts: Vec<&str> = line.split("\t").collect::<Vec<&str>>();
     assert_eq!(parts.len(), 5);
@@ -240,23 +250,10 @@ pub fn read_cluster_idx(index_id: &str) -> Vec<IndexHostPointer> {
     let reader = BufReader::new(&*stream);
 
     let mut pointers = vec![];
-    #[cfg(debug_assertions)]
-    let mut count = 0;
 
     for line in reader.lines() {
-        // Example line:
-        // 0,102,126,13:7037)/robots.txt 20201126201142\tcdx-00000.gz\t0\t205505\t1
         if let Some(host_pointer) = parse_idx_entry(index_id, line.unwrap()) {
             pointers.push(host_pointer);
-            #[cfg(debug_assertions)]
-            {
-                count += 1;
-                // during debug, only run 10 hosts for test
-                if count > 10 {
-                    dbg!("running in debug mode, limit index entries to 10");
-                    return pointers;
-                }
-            }
         }
     }
     pointers
@@ -382,7 +379,7 @@ fn retrieve_ip(
     None
 }
 
-fn get_writer(filename: &str) -> Box<dyn Write> {
+pub fn get_writer(filename: &str) -> Box<dyn Write> {
     let path = Path::new(filename);
     let file = match File::create(&path) {
         Err(why) => panic!("couldn't open {}: {}", path.display(), why.to_string()),
