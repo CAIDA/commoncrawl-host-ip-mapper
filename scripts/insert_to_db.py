@@ -27,6 +27,7 @@ class MappingCommitter:
         :return: name of the uncompressed csv file containing unique domain-ip mapping
         """
         domain_ip_map = {}
+
         with gzip.open(self.input_file) as in_file:
             for line in in_file:
                 domain, date, ip = line.decode().strip().split(",")
@@ -41,7 +42,7 @@ class MappingCommitter:
                     if date_obj > old_date_obj:
                         domain_ip_map[domain] = (date, ip)
 
-        fh = tempfile.NamedTemporaryFile(delete=False)
+        fh = tempfile.NamedTemporaryFile(delete=False, mode="w")
         for domain, (_, ip) in domain_ip_map.items():
             fh.write(f"{domain},{ip}\n")
         fh.flush()
@@ -58,10 +59,11 @@ class MappingCommitter:
             PRIMARY KEY (domain)
         )
             """)
-            self.conn.commit()
         except psycopg2.errors.DuplicateTable as e:
             # table already exist, it's fine
             return
+        finally:
+            self.conn.commit()
 
     def create_conn(self):
         # load credentials
@@ -121,4 +123,5 @@ if __name__ == "__main__":
 
     committer.create_conn()
     committer.create_table()
+    committer.extract_unique_domain_ip_mapping()
     committer.upload_mapping(delete=True)
