@@ -3,8 +3,8 @@ name = "cc-host-mapper"
 version = "0.1.0"
 authors = ["Mingwei Zhang <mingwei@mwzhang.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license-file = "LICENSE"
+repository = "https://github.com/CAIDA/commoncrawl-host-ip-mapper"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
