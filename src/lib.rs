@@ -65,6 +65,8 @@ use indicatif::{ProgressBar,ProgressStyle};
 use std::ffi::OsStr;
 use std::path::Path;
 
+const BASE_URL: &str = "https://data.commoncrawl.org";
+
 /// An index is a set of [IndexFiles] that logs the locations of the WARC
 /// records for the hosts Common Crawl crawled for that period
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -132,6 +134,7 @@ impl IndexHostPointer {
 }
 
 /// A record in an index file.
+#[allow(dead_code)]
 #[derive(Deserialize, Debug, Clone)]
 struct IndexRecord {
     url: String,
@@ -156,8 +159,8 @@ pub struct MappingEntry {
 #[allow(dead_code)]
 fn parse_index(index_id: &str) -> IndexFiles {
     let path_file = format!(
-        "https://commoncrawl.s3.amazonaws.com/crawl-data/{}/cc-index.paths.gz",
-        index_id
+        "{}/crawl-data/{}/cc-index.paths.gz",
+        BASE_URL,index_id
     );
 
     let bytes: Vec<u8> = reqwest::blocking::get(&path_file)
@@ -177,7 +180,7 @@ fn parse_index(index_id: &str) -> IndexFiles {
 
     for line in reader.lines() {
         let temp_line = line.unwrap();
-        let line_string = format!("https://commoncrawl.s3.amazonaws.com/{}", temp_line);
+        let line_string = format!("{}/{}", BASE_URL, temp_line);
         match temp_line.split("/").last() {
             Some(name) => match name {
                 "cluster.idx" => idx.cdx_cluster = line_string,
@@ -249,7 +252,8 @@ fn parse_idx_entry(index_id: &str, line: String) -> Option<IndexHostPointer> {
     let host = host_vec.join(".");
 
     let file_name = format!(
-        "https://commoncrawl.s3.amazonaws.com/cc-index/collections/{}/indexes/{}",
+        "{}/cc-index/collections/{}/indexes/{}",
+        BASE_URL,
         index_id,
         parts[1].parse::<String>().unwrap()
     );
@@ -274,7 +278,8 @@ fn parse_idx_entry(index_id: &str, line: String) -> Option<IndexHostPointer> {
 /// for each host
 pub fn read_cluster_idx(index_id: &str) -> Vec<IndexHostPointer> {
     let url = format!(
-        "https://commoncrawl.s3.amazonaws.com/cc-index/collections/{}/indexes/cluster.idx",
+        "{}/cc-index/collections/{}/indexes/cluster.idx",
+        BASE_URL,
         index_id
     );
     let stream = reqwest::blocking::get(&url.to_owned())
@@ -373,7 +378,8 @@ fn retrieve_ip(
     index_record: IndexRecord,
 ) -> Option<MappingEntry> {
     let url = format!(
-        "https://commoncrawl.s3.amazonaws.com/{}",
+        "{}/{}",
+        BASE_URL,
         index_record.filename
     );
     let start: i64 = index_record.offset.parse::<i64>().unwrap();
