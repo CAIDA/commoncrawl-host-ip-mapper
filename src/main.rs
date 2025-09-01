@@ -88,7 +88,7 @@ fn main() {
             {
                 // we don't want to go with the most recent
                 if !Confirm::new()
-                    .with_prompt(format!("Do you want to crawl another index?"))
+                    .with_prompt("Do you want to crawl another index?".to_string())
                     .default(false)
                     .interact()
                     .unwrap()

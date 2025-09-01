@@ -91,20 +91,21 @@ impl Eq for Index {}
 
 impl Ord for Index {
     fn cmp(&self, other: &Self) -> Ordering {
-        let d1 = NaiveDate::parse_from_str(&self.name, "%B %Y Index").unwrap();
-        let d2 = NaiveDate::parse_from_str(&other.name, "%B %Y Index").unwrap();
-        d1.cmp(&d2)
+        // Try to parse as dates first
+        let d1 = NaiveDate::parse_from_str(&self.name, "%B %Y Index");
+        let d2 = NaiveDate::parse_from_str(&other.name, "%B %Y Index");
+
+        match (d1, d2) {
+            (Ok(date1), Ok(date2)) => date1.cmp(&date2),
+            // If either fails to parse, fall back to string comparison
+            _ => self.name.cmp(&other.name),
+        }
     }
 }
 
 impl PartialOrd for Index {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let d1 = match NaiveDate::parse_from_str(&self.name, "%B %Y Index") {
-            Ok(d) => d,
-            Err(_) => return None,
-        };
-        let d2 = NaiveDate::parse_from_str(&other.name, "%B %Y Index").unwrap();
-        Some(d1.cmp(&d2))
+        Some(self.cmp(other))
     }
 }
 
@@ -181,13 +182,12 @@ fn parse_index(index_id: &str) -> IndexFiles {
     for line in reader.lines() {
         let temp_line = line.unwrap();
         let line_string = format!("{}/{}", BASE_URL, temp_line);
-        match temp_line.split("/").last() {
-            Some(name) => match name {
+        if let Some(name) = temp_line.split("/").last() {
+            match name {
                 "cluster.idx" => idx.cdx_cluster = line_string,
                 "metadata.yaml" => idx.metadata = line_string,
                 _ => idx.cdx_files.push(line_string),
-            },
-            None => {}
+            }
         }
     }
 
@@ -281,7 +281,7 @@ pub fn read_cluster_idx(index_id: &str) -> Vec<IndexHostPointer> {
         "{}/cc-index/collections/{}/indexes/cluster.idx",
         BASE_URL, index_id
     );
-    let stream = reqwest::blocking::get(&url.to_owned())
+    let stream = reqwest::blocking::get(url.to_owned())
         .unwrap()
         .bytes()
         .unwrap()
@@ -306,7 +306,7 @@ pub fn query_host(pointer: IndexHostPointer) -> Vec<Option<MappingEntry>> {
     // TODO: should return Err and retry.
     let url = &pointer.index_file_name;
     let start = &pointer.range_start;
-    let end = start + &pointer.range_length;
+    let end = start + pointer.range_length;
     let client = reqwest::blocking::Client::new();
 
     let range_str = format!("bytes={}-{}", start, end);
@@ -417,8 +417,8 @@ fn retrieve_ip(
 
 pub fn get_writer(filename: &str) -> Box<dyn Write> {
     let path = Path::new(filename);
-    let file = match File::create(&path) {
-        Err(why) => panic!("couldn't open {}: {}", path.display(), why.to_string()),
+    let file = match File::create(path) {
+        Err(why) => panic!("couldn't open {}: {}", path.display(), why),
         Ok(file) => file,
     };
     if path.extension() == Some(OsStr::new("gz")) {
@@ -457,14 +457,14 @@ pub fn crawl_host_ip_mapping(
     num_threads: Option<usize>,
 ) {
     let host_pointers = read_cluster_idx(&index_id);
-    let total_hosts = host_pointers.len().clone() as u64;
+    let total_hosts = host_pointers.len() as u64;
 
     let (sender, receiver) = channel::<MappingEntry>();
     let (sender_pb, receiver_pb) = channel::<String>();
 
     // dedicated thread for handling output of results
     let writer_thread = thread::spawn(move || {
-        let mut writer = get_writer(&output_file_name.as_str());
+        let mut writer = get_writer(output_file_name.as_str());
         for item in receiver.iter() {
             writeln!(writer, "{},{},{}", item.host, item.timestr, item.ip).unwrap();
         }
@@ -498,7 +498,7 @@ pub fn crawl_host_ip_mapping(
     host_pointers
         .par_iter()
         .for_each_with((sender, sender_pb), |(s1, s2), x| {
-            for mapping in query_host(x.clone()).into_iter().filter_map(|x| x) {
+            for mapping in query_host(x.clone()).into_iter().flatten() {
                 s1.send(mapping.clone()).unwrap()
             }
             s2.send(x.host.to_owned()).unwrap();
