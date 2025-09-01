@@ -315,7 +315,17 @@ pub fn query_host(pointer: IndexHostPointer) -> Vec<Option<MappingEntry>> {
         Ok(res) => res,
         Err(_) => return vec![],
     };
-    let bytes = rsp.bytes().unwrap();
+
+    // Check HTTP status before assuming gzipped content
+    if !rsp.status().is_success() {
+        eprintln!("HTTP error {}: {}", rsp.status(), url);
+        return vec![];
+    }
+
+    let bytes = match rsp.bytes() {
+        Ok(b) => b,
+        Err(_) => return vec![],
+    };
     drop(client);
 
     // NOTE: needs both of the following imports BufRead, BufReader;
@@ -367,7 +377,13 @@ fn parse_time_string(time_str: &str) -> chrono::DateTime<chrono::Utc> {
     let year = time_str[0..=3].parse::<i32>().unwrap();
     let month = time_str[4..=5].parse::<u32>().unwrap();
     let day = time_str[6..=7].parse::<u32>().unwrap();
-    Utc.ymd(year, month, day).and_hms(0, 0, 0)
+    match NaiveDate::from_ymd_opt(year, month, day) {
+        Some(date) => Utc.from_utc_datetime(&date.and_hms_opt(0, 0, 0).unwrap()),
+        None => {
+            eprintln!("Invalid date: {}-{:02}-{:02}", year, month, day);
+            Utc::now()
+        }
+    }
 }
 
 /// retrieve IP address of a crawl result from the WARC file specified in the index record
@@ -391,7 +407,17 @@ fn retrieve_ip(
         Ok(res) => res,
         Err(_) => return None,
     };
-    let bytes = rsp.bytes().unwrap();
+
+    // Check HTTP status before assuming gzipped content
+    if !rsp.status().is_success() {
+        eprintln!("HTTP error {}: {}", rsp.status(), &url);
+        return None;
+    }
+
+    let bytes = match rsp.bytes() {
+        Ok(b) => b,
+        Err(_) => return None,
+    };
     let reader = BufReader::new(GzDecoder::new(&*bytes));
     // let reader = BufReader::new(&*bytes);
     for line in reader.lines() {
