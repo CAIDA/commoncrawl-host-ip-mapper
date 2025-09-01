@@ -1,2 +1,7 @@
 /target
 .idea
+
+CLAUDE.md
+.claude
+
+*.gz

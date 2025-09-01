@@ -46,6 +46,7 @@ use chrono::prelude::*;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
+use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use reqwest::{
     self,
@@ -53,7 +54,9 @@ use reqwest::{
 };
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::ffi::OsStr;
 use std::fs::File;
+use std::path::Path;
 use std::sync::mpsc::channel;
 use std::{
     collections::HashSet,
@@ -61,9 +64,6 @@ use std::{
     net::IpAddr,
     thread,
 };
-use indicatif::{ProgressBar,ProgressStyle};
-use std::ffi::OsStr;
-use std::path::Path;
 
 const BASE_URL: &str = "https://data.commoncrawl.org";
 
@@ -129,7 +129,10 @@ pub struct IndexHostPointer {
 
 impl IndexHostPointer {
     pub fn to_csv(&self) -> String {
-        format!("{},{},{},{},{}", self.host, self.timestamp, self.index_file_name, self.range_start, self.range_length)
+        format!(
+            "{},{},{},{},{}",
+            self.host, self.timestamp, self.index_file_name, self.range_start, self.range_length
+        )
     }
 }
 
@@ -158,10 +161,7 @@ pub struct MappingEntry {
 
 #[allow(dead_code)]
 fn parse_index(index_id: &str) -> IndexFiles {
-    let path_file = format!(
-        "{}/crawl-data/{}/cc-index.paths.gz",
-        BASE_URL,index_id
-    );
+    let path_file = format!("{}/crawl-data/{}/cc-index.paths.gz", BASE_URL, index_id);
 
     let bytes: Vec<u8> = reqwest::blocking::get(&path_file)
         .unwrap()
@@ -279,8 +279,7 @@ fn parse_idx_entry(index_id: &str, line: String) -> Option<IndexHostPointer> {
 pub fn read_cluster_idx(index_id: &str) -> Vec<IndexHostPointer> {
     let url = format!(
         "{}/cc-index/collections/{}/indexes/cluster.idx",
-        BASE_URL,
-        index_id
+        BASE_URL, index_id
     );
     let stream = reqwest::blocking::get(&url.to_owned())
         .unwrap()
@@ -377,11 +376,7 @@ fn retrieve_ip(
     timestamp_str: String,
     index_record: IndexRecord,
 ) -> Option<MappingEntry> {
-    let url = format!(
-        "{}/{}",
-        BASE_URL,
-        index_record.filename
-    );
+    let url = format!("{}/{}", BASE_URL, index_record.filename);
     let start: i64 = index_record.offset.parse::<i64>().unwrap();
     let mut length: i64 = index_record.length.parse::<i64>().unwrap();
     if length > 901 {
@@ -479,11 +474,12 @@ pub fn crawl_host_ip_mapping(
     thread::spawn(move || {
         let sty = ProgressStyle::default_bar()
             .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+            .expect("Invalid progress bar template")
             .progress_chars("##-");
         let pb = ProgressBar::new(total_hosts);
         pb.set_style(sty);
         for host in receiver_pb.iter() {
-            pb.set_message(&host);
+            pb.set_message(host.clone());
             pb.inc(1);
         }
     });
@@ -499,12 +495,14 @@ pub fn crawl_host_ip_mapping(
     println!("Will run in {} threads", rayon::current_num_threads());
 
     // start the actual crawling
-    host_pointers.par_iter().for_each_with((sender, sender_pb), |(s1,s2), x| {
-        for mapping in query_host(x.clone()).into_iter().filter_map(|x| x) {
-            s1.send(mapping.clone()).unwrap()
-        }
-        s2.send(x.host.to_owned()).unwrap();
-    });
+    host_pointers
+        .par_iter()
+        .for_each_with((sender, sender_pb), |(s1, s2), x| {
+            for mapping in query_host(x.clone()).into_iter().filter_map(|x| x) {
+                s1.send(mapping.clone()).unwrap()
+            }
+            s2.send(x.host.to_owned()).unwrap();
+        });
 
     // wait for the output thread to stop
     writer_thread.join().unwrap();
