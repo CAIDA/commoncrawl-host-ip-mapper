@@ -59,6 +59,9 @@ struct Opts {
 fn main() {
     let opts: Opts = Opts::parse();
     let mut index_list: Vec<Index> = retrieve_indices();
+    // Sort the list first to get newest-first order
+    index_list.sort();
+
     let ids = &index_list
         .iter()
         .cloned()
@@ -70,14 +73,13 @@ fn main() {
 
     match opts.index_id {
         Some(index_id) => {
-            selected_index = match ids.iter().position(|x| x == &index_id) {
-                Some(index) => index_list[index].clone(),
+            selected_index = match index_list.iter().find(|x| x.id == index_id) {
+                Some(index) => index.clone(),
                 None => panic!("index id {} not found", index_id),
             }
         }
 
         None => {
-            index_list.sort();
             selected_index = index_list[0].to_owned();
 
             if !Confirm::new()
@@ -106,8 +108,8 @@ fn main() {
                         .interact_text()
                         .unwrap();
 
-                    match ids.iter().position(|x| x == &input) {
-                        Some(index) => selected_index = index_list[index].clone(),
+                    match index_list.iter().find(|x| x.id == input) {
+                        Some(index) => selected_index = index.clone(),
                         None => return,
                     }
                 }

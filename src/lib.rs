@@ -91,15 +91,10 @@ impl Eq for Index {}
 
 impl Ord for Index {
     fn cmp(&self, other: &Self) -> Ordering {
-        // Try to parse as dates first
-        let d1 = NaiveDate::parse_from_str(&self.name, "%B %Y Index");
-        let d2 = NaiveDate::parse_from_str(&other.name, "%B %Y Index");
-
-        match (d1, d2) {
-            (Ok(date1), Ok(date2)) => date1.cmp(&date2),
-            // If either fails to parse, fall back to string comparison
-            _ => self.name.cmp(&other.name),
-        }
+        // Sort by ID in reverse order (newest first)
+        // IDs follow pattern CC-MAIN-YYYY-WW where WW is week number
+        // This gives us consistent chronological ordering
+        other.id.cmp(&self.id)
     }
 }
 
@@ -222,10 +217,10 @@ pub fn retrieve_indices() -> Vec<Index> {
 }
 
 /// Retrives all indicis using [retrieve_indices] functions, sorts the indicis
-/// using the names, and return the most recent index.
+/// by their IDs in reverse chronological order, and return the most recent index.
 ///
-/// The sorting is done by parsing Index names (e.g. `November 2020 Index`) to
-/// [NaiveDate] and compare the dates.
+/// The sorting is done by comparing Index IDs (e.g. `CC-MAIN-2025-33`) which
+/// follow a consistent pattern of CC-MAIN-YYYY-WW where WW is the week number.
 pub fn get_newest_index() -> Index {
     let mut indices = retrieve_indices();
     indices.sort();
