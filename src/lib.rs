@@ -205,6 +205,7 @@ fn parse_index(index_id: &str) -> IndexFiles {
 ///
 /// Retrieve all indices and sort by most-recent-first order.
 /// ```no_run
+/// use cc_host_mapper::{retrieve_indices, Index};
 /// let mut index_list: Vec<Index> = retrieve_indices();
 /// index_list.sort();
 /// // index_list.reverse();
@@ -467,6 +468,7 @@ pub fn get_writer(filename: &str) -> Box<dyn Write> {
 /// results to `mapping.csv`.
 ///
 /// ```no_run
+/// use cc_host_mapper::{get_newest_index, crawl_host_ip_mapping};
 /// let newest_index = get_newest_index();
 /// crawl_host_ip_mapping(newest_index.id.to_owned(), "mapping.csv".to_owned(), None);
 /// ```
@@ -474,6 +476,7 @@ pub fn get_writer(filename: &str) -> Box<dyn Write> {
 /// You can also specify the number of threads you want. For example, run crawling with 16 threads:
 ///
 /// ```no_run
+/// use cc_host_mapper::{get_newest_index, crawl_host_ip_mapping};
 /// let newest_index = get_newest_index();
 /// crawl_host_ip_mapping(newest_index.id.to_owned(), "mapping.csv".to_owned(), Some(16));
 /// ```
